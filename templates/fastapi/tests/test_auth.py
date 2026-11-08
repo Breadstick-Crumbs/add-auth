@@ -9,10 +9,12 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 from sqlmodel.pool import StaticPool  # noqa: E402
 
+# If auth lives at app/auth, change `auth` to `app.auth` in these four lines; nothing else names it.
 from auth import CurrentUser, auth_router, require_role  # noqa: E402
-from auth import security  # noqa: E402
+from auth import routes as auth_routes, security  # noqa: E402
 from auth.db import get_session  # noqa: E402
 from auth.models import User  # noqa: E402
+from sqlmodel import select  # noqa: E402
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
@@ -45,7 +47,7 @@ def setup_function() -> None:
     sent.clear()
 
 
-def _client(monkeypatch=None) -> TestClient:
+def _client() -> TestClient:
     return TestClient(app)
 
 
@@ -92,7 +94,7 @@ def test_reset_token_is_not_an_access_token():
     c = _client()
     _register(c)
     with Session(engine) as s:
-        user = s.exec(__import__("sqlmodel").select(User)).one()
+        user = s.exec(select(User)).one()
         reset = security.create_reset_token(str(user.id), user.hashed_password)
     assert TestClient(app).get("/auth/me", headers={"Authorization": f"Bearer {reset}"}).status_code == 401
 
@@ -102,7 +104,7 @@ def test_role_check():
     _register(c)
     assert c.get("/admin-only").status_code == 403
     with Session(engine) as s:
-        user = s.exec(__import__("sqlmodel").select(User)).one()
+        user = s.exec(select(User)).one()
         user.role = "admin"
         s.add(user)
         s.commit()
@@ -110,9 +112,7 @@ def test_role_check():
 
 
 def test_forgot_and_reset_password_once(monkeypatch):
-    import auth.routes
-
-    monkeypatch.setattr(auth.routes, "send_reset_email", lambda to, token: sent.append((to, token)))
+    monkeypatch.setattr(auth_routes, "send_reset_email", lambda to, token: sent.append((to, token)))
     c = _client()
     _register(c)
     assert c.post("/auth/forgot-password", json={"email": "nobody@example.com"}).status_code == 200

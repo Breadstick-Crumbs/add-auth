@@ -24,9 +24,26 @@ test('nextjs puts core, adapter, actions and proxy under the root', () => {
   const d = tmp();
   assert.equal(install(['nextjs', d], quiet), 0);
   for (const f of ['lib/auth/core.ts', 'lib/auth/core.test.ts', 'lib/auth/session.ts', 'lib/auth/users.ts',
-    'lib/auth/schema.ts', 'lib/auth/email.ts', 'app/(auth)/actions.ts', 'proxy.ts']) {
+    'lib/auth/schema.ts', 'lib/auth/email.ts', 'app/(auth)/actions.ts', 'app/(auth)/forms.tsx',
+    'app/(auth)/layout.tsx', 'app/(auth)/sign-in/page.tsx', 'app/(auth)/sign-up/page.tsx',
+    'app/(auth)/forgot-password/page.tsx', 'app/(auth)/reset-password/page.tsx', 'app/account/page.tsx', 'proxy.ts']) {
     assert.ok(existsSync(join(d, f)), f);
   }
+  assert.ok(!existsSync(join(d, 'lib/db.ts')), 'no db layer without --with-db');
+});
+
+test('nextjs --with-db adds lib/db.ts under the root and drizzle.config.ts in the cwd', () => {
+  const project = tmp();
+  const cwd = process.cwd();
+  process.chdir(project);
+  try {
+    assert.equal(install(['nextjs', 'src', '--with-db'], quiet), 0);
+  } finally {
+    process.chdir(cwd);
+  }
+  assert.ok(existsSync(join(project, 'src/lib/db.ts')));
+  assert.ok(existsSync(join(project, 'drizzle.config.ts')));
+  assert.equal(install(['fastapi', tmp(), '--with-db'], quiet), 2);
 });
 
 test('node copies only the core', () => {

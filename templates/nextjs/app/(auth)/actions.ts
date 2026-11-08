@@ -8,7 +8,10 @@ import { sendResetEmail } from '@/lib/auth/email';
 import { endSession, requireUser, startSession } from '@/lib/auth/session';
 import { createUser, currentPasswordHash, findUserByEmail, setPasswordHash } from '@/lib/auth/users';
 
-export type FormState = { error?: string; success?: string };
+// `email` is handed back so the form can refill it: React clears a form after its action runs.
+export type FormState = { error?: string; success?: string; email?: string };
+
+const typedEmail = (form: FormData) => String(form.get('email') ?? '').slice(0, 255);
 
 const password = z.string().min(8, 'Use at least 8 characters').max(128);
 const email = z.string().email('Enter a valid email').max(255);
@@ -25,8 +28,8 @@ function safeNext(next: unknown): string {
 
 export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   const data = parse(z.object({ email, password, name: z.string().max(255).optional() }), form);
-  if (typeof data === 'string') return { error: data };
-  if (await findUserByEmail(data.email)) return { error: 'An account with this email already exists' };
+  if (typeof data === 'string') return { error: data, email: typedEmail(form) };
+  if (await findUserByEmail(data.email)) return { error: 'An account with this email already exists', email: data.email };
   const user = await createUser({ email: data.email, passwordHash: await hashPassword(data.password), name: data.name });
   await startSession(user.id);
   redirect(safeNext(form.get('next')));
@@ -34,10 +37,10 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
 
 export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const data = parse(z.object({ email, password: z.string().min(1).max(128) }), form);
-  if (typeof data === 'string') return { error: data };
+  if (typeof data === 'string') return { error: data, email: typedEmail(form) };
   const user = await findUserByEmail(data.email);
   const ok = await verifyPassword(data.password, user?.passwordHash);
-  if (!user || !ok || !user.isActive) return { error: 'Incorrect email or password' };
+  if (!user || !ok || !user.isActive) return { error: 'Incorrect email or password', email: data.email };
   await startSession(user.id);
   redirect(safeNext(form.get('next')));
 }
@@ -58,11 +61,11 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
 
 export async function forgotPassword(_: FormState, form: FormData): Promise<FormState> {
   const data = parse(z.object({ email }), form);
-  if (typeof data === 'string') return { error: data };
+  if (typeof data === 'string') return { error: data, email: typedEmail(form) };
   const user = await findUserByEmail(data.email);
   if (user?.isActive) await sendResetEmail(user.email, await createResetToken(user.id, user.passwordHash));
   // Same answer either way, so this can't be used to find out who has an account.
-  return { success: 'If that email has an account, we sent a reset link' };
+  return { success: 'If that email has an account, we sent a reset link', email: data.email };
 }
 
 export async function resetPassword(_: FormState, form: FormData): Promise<FormState> {

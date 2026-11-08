@@ -1,10 +1,10 @@
 // Run with: npx tsx --test lib/auth/core.test.ts
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import * as core from './core';
 
+// core reads AUTH_SECRET when it signs, not at import, so setting it here is in time.
 process.env.AUTH_SECRET ??= 'test-secret-test-secret-test-secret-1234';
-
-const core = await import('./core.ts');
 
 test('hash and verify', async () => {
   const h = await core.hashPassword('password123');

@@ -7,7 +7,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, readAccessToken } from '@/lib/auth/core';
 
-const PROTECTED = ['/dashboard', '/settings', '/admin'];
+const PROTECTED = ['/account', '/dashboard', '/settings', '/admin'];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

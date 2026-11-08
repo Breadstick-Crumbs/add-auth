@@ -13,6 +13,7 @@ Works with **FastAPI**, **Next.js** (App Router) and any **Node** server (Expres
 - Roles: `require_role("admin")` in FastAPI, `requireUser("admin")` in Next.js
 - Change password, plus forgot/reset password by email; each reset link works once
 - Users live in your own database: no vendor, no per-user pricing
+- Next.js: ready sign-in, sign-up, forgot-password, reset-password and account pages, in plain Tailwind
 - Tests you copy into the project along with the code
 
 The code is taken from two widely used MIT templates, [fastapi/full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template) and [nextjs/saas-starter](https://github.com/nextjs/saas-starter). It keeps their Argon2/bcrypt hashing and timing-safe login and adds single-use reset links, typed tokens and roles.
@@ -38,7 +39,7 @@ Not using Claude Code? Run the same script yourself:
 
 ```bash
 node scripts/install.mjs fastapi path/to/app --tests path/to/tests
-node scripts/install.mjs nextjs path/to/next-app
+node scripts/install.mjs nextjs path/to/next-app   # add --with-db if it has no database layer
 node scripts/install.mjs node path/to/server/auth
 ```
 
@@ -49,7 +50,8 @@ templates/
   fastapi/auth/        config, security, models, db, deps, routes, email
   fastapi/tests/       pytest suite (in-memory SQLite, no server needed)
   node/lib/auth/       core.ts: hashing and tokens for any Node server, with tests
-  nextjs/              session helpers, server actions, proxy.ts, Drizzle schema
+  nextjs/              session helpers, server actions, pages, proxy.ts, Drizzle schema
+  nextjs-db/           lib/db.ts and drizzle.config.ts, for an app with no database yet
 ```
 
 ## Use it
@@ -98,7 +100,7 @@ uv run --no-project --with "fastapi[standard]" --with sqlmodel --with pyjwt --wi
 ```
 
 ```bash
-bash scripts/check-nextjs.sh          # installs into a scratch Next.js app: tsc, core tests, next build
+bash scripts/check-nextjs.sh          # fresh create-next-app + templates: eslint, tsc, core tests, next build
 node --test scripts/install.test.mjs  # the copy script
 ```
 

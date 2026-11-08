@@ -3,9 +3,12 @@
 //
 //   node install.mjs fastapi <package-dir> [--tests <dir>]
 //       <package-dir>/auth/*.py, and <dir>/test_auth.py if --tests is given
-//   node install.mjs nextjs <app-root>
-//       <app-root>/lib/auth/*.ts, <app-root>/app/(auth)/actions.ts, <app-root>/proxy.ts
+//   node install.mjs nextjs <app-root> [--with-db]
+//       <app-root>/lib/auth/*.ts, <app-root>/app/(auth)/* (actions and the sign-in,
+//       sign-up, forgot and reset pages), <app-root>/app/account/page.tsx, <app-root>/proxy.ts
 //       (<app-root> is where the @/ alias points: the project root, or src/)
+//       --with-db, for a project with no database layer: <app-root>/lib/db.ts
+//       (Drizzle on postgres.js) and ./drizzle.config.ts
 //   node install.mjs node <auth-dir>
 //       <auth-dir>/core.ts and core.test.ts
 //
@@ -24,6 +27,14 @@ function filesIn(dir) {
     .map((e) => e.name);
 }
 
+// Every file under dir, as paths relative to it.
+function treeIn(dir, prefix = '') {
+  return readdirSync(join(dir, prefix), { withFileTypes: true }).flatMap((e) => {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    return e.isDirectory() ? treeIn(dir, rel) : [rel];
+  });
+}
+
 function plan(stack, target, opts) {
   const pairs = [];
   const add = (from, to) => pairs.push([join(TEMPLATES, from), to]);
@@ -35,8 +46,13 @@ function plan(stack, target, opts) {
     for (const f of filesIn(join(TEMPLATES, 'node/lib/auth'))) add(`node/lib/auth/${f}`, join(authDir, f));
     if (stack === 'nextjs') {
       for (const f of filesIn(join(TEMPLATES, 'nextjs/lib/auth'))) add(`nextjs/lib/auth/${f}`, join(authDir, f));
-      add('nextjs/app/(auth)/actions.ts', join(target, 'app/(auth)/actions.ts'));
+      for (const f of treeIn(join(TEMPLATES, 'nextjs/app'))) add(`nextjs/app/${f}`, join(target, 'app', f));
       add('nextjs/proxy.ts', join(target, 'proxy.ts'));
+      if (opts.withDb) {
+        add('nextjs-db/lib/db.ts', join(target, 'lib/db.ts'));
+        // drizzle-kit looks for its config in the project root, which is where this runs.
+        add('nextjs-db/drizzle.config.ts', resolve('drizzle.config.ts'));
+      }
     }
   } else {
     return null;
@@ -60,14 +76,19 @@ export function install(argv, log = console.log) {
   const force = flag('--force');
   const keepExisting = flag('--keep-existing');
   const dryRun = flag('--dry-run');
+  const withDb = flag('--with-db');
   const tests = option('--tests');
   const [stack, target] = args;
-  const usage = 'usage: install.mjs <fastapi|nextjs|node> <target-dir> [--tests <dir>] [--force | --keep-existing] [--dry-run]';
+  const usage = 'usage: install.mjs <fastapi|nextjs|node> <target-dir> [--tests <dir>] [--with-db] [--force | --keep-existing] [--dry-run]';
   if (!stack || !target || args.length > 2) {
     log(usage);
     return 2;
   }
-  const pairs = plan(stack, resolve(target), { tests: tests && resolve(tests) });
+  if (withDb && stack !== 'nextjs') {
+    log('--with-db is only for nextjs');
+    return 2;
+  }
+  const pairs = plan(stack, resolve(target), { tests: tests && resolve(tests), withDb });
   if (!pairs) {
     log(`unknown stack "${stack}"\n${usage}`);
     return 2;
