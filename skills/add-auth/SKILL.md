@@ -9,8 +9,8 @@ Copy the tested auth templates in this plugin into the user's project and wire
 them in. Don't write auth from scratch and don't change the security logic in
 the templates; adapt only the edges (database access, imports, UI).
 
-Templates live next to this file at `../../templates/` (resolve against this
-SKILL.md's directory):
+Templates live at `<skill-dir>/../../templates/`, where `<skill-dir>` is
+this skill's base directory:
 
 - `templates/fastapi/auth/` – FastAPI package: `config.py`, `security.py`, `models.py`, `db.py`, `deps.py`, `routes.py`, `email.py`; tests in `templates/fastapi/tests/test_auth.py`.
 - `templates/node/lib/auth/core.ts` – framework-free core (hashing, access and reset tokens, cookie options) with `core.test.ts`.
@@ -26,28 +26,47 @@ Find out, and tell the user in one or two lines:
 
 ## 2. Copy and wire in
 
+Copy with the plugin's script, not by reading and rewriting the files: it
+copies them exactly and costs no tokens. It is `scripts/install.mjs` two
+levels up from this skill's base directory (`<skill-dir>/../../scripts/install.mjs`).
+Run it from the project root with `--dry-run` first, then for real:
+
+```bash
+node <skill-dir>/../../scripts/install.mjs fastapi app --tests tests   # app/auth/*.py, tests/test_auth.py
+node <skill-dir>/../../scripts/install.mjs nextjs .                     # or src/ if the @/ alias points there
+node <skill-dir>/../../scripts/install.mjs node src/auth                # core only, for other Node servers
+```
+
+It refuses to overwrite and copies nothing if any target file exists. When
+the clash is a file to merge into (an existing `proxy.ts` or
+`middleware.ts`), rerun with `--keep-existing`, which copies the rest, then
+merge by hand. Use `--force` only once the user agrees to lose the file. If `node` isn't
+available, copy the same files by hand (`cp`), and still don't retype them.
+
+After copying, change only what the steps below name. Leave the logic in
+`security.py`, `core.ts` and the routes alone.
+
 ### FastAPI
-1. Copy `templates/fastapi/auth/` into the app package (for example `app/auth/`). Fix the relative imports if the location needs it.
+1. Copy with `install.mjs fastapi <package-dir> --tests <tests-dir>` (for example `app/auth/`).
 2. Edit `auth/db.py` so `get_session` is the project's existing session dependency. That is the only place auth touches the database setup.
 3. If the project uses plain SQLAlchemy, not SQLModel, rewrite `models.py`'s `User` as a SQLAlchemy model with the same columns and keep the Pydantic schemas.
 4. `app.include_router(auth_router)` in the app's main file.
 5. Protect routes with `user: CurrentUser` or `dependencies=[Depends(require_role("admin"))]`.
 6. Add dependencies: `pyjwt`, `pwdlib[argon2,bcrypt]`, `email-validator`, `python-multipart`, `sqlmodel` (if not already present).
 7. Create the `users` table through the project's migrations (Alembic autogenerate if it has Alembic).
-8. Copy `tests/test_auth.py` into the test folder, fix its imports to the new package path, and run it.
+8. Fix the imports in the copied `test_auth.py` to the package path (`from auth` becomes, say, `from app.auth`), and run it.
 
 ### Next.js (App Router)
-1. Copy `templates/node/lib/auth/core.ts` and `core.test.ts` to `lib/auth/`.
-2. Copy `templates/nextjs/lib/auth/*`, `templates/nextjs/app/(auth)/actions.ts` and `templates/nextjs/proxy.ts`.
-3. Next.js 15 or earlier: rename `proxy.ts` to `middleware.ts` and its export to `middleware`. If the project already has a middleware/proxy file, merge the auth check into it.
-4. Point `lib/auth/users.ts` at the project's database: change the `db` import, or rewrite its five functions for Prisma/raw SQL. Merge `schema.ts` into the existing Drizzle schema and generate a migration.
-5. Set `PROTECTED` in the proxy to the app's private paths.
-6. Build `/sign-in`, `/sign-up`, `/forgot-password` and `/reset-password` pages using the project's own components and styling. Each is a form posting to the matching server action through `useActionState`; pass `next` as a hidden field on sign-in, and the `token` search param on reset.
-7. In server components and actions, use `getUser()` or `requireUser("admin")` from `lib/auth/session.ts`.
-8. Dependencies: `jose`, `bcryptjs`, `zod`, `server-only` (and `drizzle-orm` if using the Drizzle file as-is).
+1. Copy with `install.mjs nextjs <app-root>`: the core with its test, `lib/auth/*`, `app/(auth)/actions.ts` and `proxy.ts`.
+2. Next.js 15 or earlier: rename `proxy.ts` to `middleware.ts` and its export to `middleware`. If the project already has a middleware/proxy file, merge the auth check into it.
+3. Point `lib/auth/users.ts` at the project's database: change the `db` import, or rewrite its five functions for Prisma/raw SQL. Merge `schema.ts` into the existing Drizzle schema and generate a migration.
+4. Set `PROTECTED` in the proxy to the app's private paths.
+5. Build `/sign-in`, `/sign-up`, `/forgot-password` and `/reset-password` pages using the project's own components and styling. Each is a form posting to the matching server action through `useActionState`; pass `next` as a hidden field on sign-in, and the `token` search param on reset.
+6. In server components and actions, use `getUser()` or `requireUser("admin")` from `lib/auth/session.ts`.
+7. Dependencies: `jose`, `bcryptjs`, `zod`, `server-only` (and `drizzle-orm` if using the Drizzle file as-is).
 
 ### Other Node servers (Express, Hono, Fastify, plain http)
-Copy only `core.ts` and `core.test.ts`. Write the routes in the project's style,
+Copy only the core with `install.mjs node <dir>`. Write the routes in the project's style,
 keeping the same behaviour as `templates/nextjs/app/(auth)/actions.ts`:
 register, login (same error for unknown email and wrong password; call
 `verifyPassword` even when the user isn't found), logout, me, change password,

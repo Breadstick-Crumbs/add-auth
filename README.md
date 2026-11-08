@@ -1,5 +1,7 @@
 # add-auth
 
+[![test](https://github.com/Breadstick-Crumbs/add-auth/actions/workflows/test.yml/badge.svg)](https://github.com/Breadstick-Crumbs/add-auth/actions/workflows/test.yml)
+
 Stop rebuilding auth in every project. Say "add auth" and your coding agent drops in the same tested sign-up, sign-in and password reset code each time, wired to your own database.
 
 Works with **FastAPI**, **Next.js** (App Router) and any **Node** server (Express, Hono, Fastify, plain `http`).
@@ -30,9 +32,17 @@ Then, in any project:
 add auth
 ```
 
-The skill finds your stack and database layer, copies the templates, wires them in, adds a migration, sets up `.env.example` and runs the tests.
+The skill finds your stack and database layer, copies the templates, wires them in, adds a migration, sets up `.env.example` and runs the tests. The files are copied by a script, not retyped by the model, so the security code arrives exactly as tested.
 
-Not using Claude Code? Copy the templates yourself: they're plain files.
+Not using Claude Code? Run the same script yourself:
+
+```bash
+node scripts/install.mjs fastapi path/to/app --tests path/to/tests
+node scripts/install.mjs nextjs path/to/next-app
+node scripts/install.mjs node path/to/server/auth
+```
+
+It never overwrites a file unless you pass `--force`; `--keep-existing` copies the rest and leaves your files alone; `--dry-run` shows what it would do. The templates are plain files, so copying them by hand works too.
 
 ```
 templates/
@@ -88,9 +98,11 @@ uv run --no-project --with "fastapi[standard]" --with sqlmodel --with pyjwt --wi
 ```
 
 ```bash
-cd templates/node
-npm i jose bcryptjs && npx tsx --test lib/auth/core.test.ts
+bash scripts/check-nextjs.sh          # installs into a scratch Next.js app: tsc, core tests, next build
+node --test scripts/install.test.mjs  # the copy script
 ```
+
+CI runs all of these on every push and weekly against the latest FastAPI, Next.js and zod.
 
 ## Good to know
 

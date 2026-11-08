@@ -1,0 +1,45 @@
+name: test
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, to catch breakage from new FastAPI/Next/zod releases
+
+permissions:
+  contents: read
+
+jobs:
+  fastapi:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: pytest
+        working-directory: templates/fastapi
+        run: >
+          uv run --no-project --python ${{ matrix.python }}
+          --with "fastapi[standard]" --with sqlmodel --with pyjwt --with "pwdlib[argon2,bcrypt]"
+          --with email-validator --with pytest
+          python -m pytest -q tests
+
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test scripts/install.test.mjs
+
+  nextjs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bash scripts/check-nextjs.sh "$RUNNER_TEMP/nextjs-check"
