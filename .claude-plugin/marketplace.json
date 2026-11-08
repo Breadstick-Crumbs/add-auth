@@ -1,0 +1,8 @@
+{
+  "name": "add-auth",
+  "owner": { "name": "Breadstick-Crumbs" },
+  "metadata": { "description": "Stop rebuilding auth in every project." },
+  "plugins": [
+    { "name": "add-auth", "source": "./", "description": "Stop rebuilding auth in every project." }
+  ]
+}
